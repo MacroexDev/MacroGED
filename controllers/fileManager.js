@@ -4,6 +4,7 @@ import oracledb from 'oracledb';
 import { config } from '../config.js';
 import { salvarArquivoRede } from './orquestradores/salvarArquivoRede.js';
 import { buscarCaminhoGedPorDocumento, buscarDadosParaMoverArquivo } from '../services/processoService.js';
+import { sanitizarNome } from '../../utils/sanitizar.js';
 
 
 function gerarCaminho(relPath) {
@@ -217,7 +218,6 @@ export async function moverArquivoParaApagados(caminhoRelativoCompleto, idDocume
     caminhoCompleto = gerarCaminho(caminhoRelativoCompleto);
   }
 
-  // Se não existir, tenta salvar
   if (!fs.existsSync(caminhoCompleto)) {
     console.warn('⚠️ Arquivo não encontrado. Tentando salvar...');
 
@@ -239,15 +239,12 @@ export async function moverArquivoParaApagados(caminhoRelativoCompleto, idDocume
     }
   }
 
-  // Pega os dados para saber se é uma invoice
   const dados = await buscarDadosParaMoverArquivo(idDocumentoArquivos);
   const isInvoice = dados?.invoice_processo != null;
 
-  // Define destino para APAGADOS ou ../../APAGADOS se for invoice
   const pastaPai = path.dirname(caminhoRelativoCompleto);
   const nomeArquivo = path.basename(caminhoRelativoCompleto);
-  const destinoRelativo = path.join(pastaPai, isInvoice ? '../..' : '..', 'APAGADOS', nomeArquivo); // se invoice, sobe dois níveis
-
+  const destinoRelativo = path.join(pastaPai, isInvoice ? '../..' : '..', 'APAGADOS', nomeArquivo);
   const destinoCompleto = gerarCaminho(destinoRelativo);
   const destinoDir = path.dirname(destinoCompleto);
 

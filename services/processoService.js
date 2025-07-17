@@ -4,6 +4,7 @@ import { criarArvore, salvarArquivo } from '../controllers/fileManager.js';
 import { criarEstruturaPadraoProcesso } from '../controllers/estruturas/estruturaProcesso.js';
 import { criarEstruturaCliente } from '../controllers/estruturas/estruturaCliente.js';
 import { criarEstruturaFornecedor } from '../controllers/estruturas/estruturaFornecedor.js';
+import { sanitizarNome } from '../utils/sanitizar.js';
 
 /**
  * Busca os dados do CLIENTE e os processos relacionados.
@@ -21,7 +22,7 @@ export async function buscarDadosDoCliente(idCliente) {
     return null;
   }
 
-  const nomeCliente = clienteResult.rows[0][0];
+  const nomeCliente = sanitizarNome(clienteResult.rows[0][0]);
 
   const processosResult = await conn.execute(
     `SELECT ID_PROCESSO, COD_PROCESSO, ID_MODALIDADE, ID_EXPORTADOR, STATUS
@@ -40,7 +41,7 @@ export async function buscarDadosDoCliente(idCliente) {
       [idFornecedor]
     );
     const nomeFornecedor = fornecedorResult.rows.length > 0
-      ? fornecedorResult.rows[0][0]
+      ? sanitizarNome(fornecedorResult.rows[0][0])
       : 'FORNECEDOR DESCONHECIDO';
 
     const modalidadeResult = await conn.execute(
@@ -48,7 +49,7 @@ export async function buscarDadosDoCliente(idCliente) {
       [idModalidade]
     );
     const abrModalidade = modalidadeResult.rows.length > 0
-      ? modalidadeResult.rows[0][0]
+      ? sanitizarNome(modalidadeResult.rows[0][0])
       : 'MODALIDADE DESCONHECIDA';
 
     processosRelacionados.push({
@@ -80,7 +81,7 @@ export async function buscarDadosDoFornecedor(idFornecedor) {
   if (result.rows.length === 0) return null;
 
   return {
-    nomeFornecedor: result.rows[0][0]
+    nomeFornecedor: sanitizarNome(result.rows[0][0])
   };
 }
 
@@ -110,18 +111,17 @@ export async function buscarDadosDoProcesso(idProc) {
 
   if (result.rows.length === 0) return null;
 
-  const [idProcesso, codProcesso, abrModalidade, nomeCliente, nomeFornecedor, status] = result.rows[0];
+  const [idProcesso, codProcesso, modalidadeNome, nomeCliente, nomeFornecedor, status] = result.rows[0];
 
   return {
     idProc: idProcesso,
     codProcesso,
-    abrModalidade,
-    nomeCliente,
-    nomeFornecedor,
+    abrModalidade: sanitizarNome(modalidadeNome),
+    nomeCliente: sanitizarNome(nomeCliente),
+    nomeFornecedor: sanitizarNome(nomeFornecedor),
     status
   };
 }
-
 
 /**
  * Busca o caminho relativo da rede salvo no DOCUMENTO_ARQUIVOS.
@@ -144,7 +144,6 @@ export async function buscarCaminhoGedPorDocumento(idDocumentoArquivos) {
 
   return result.rows[0][0]; // CAMINHO_GED
 }
-
 
 export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
   const conn = await oracledb.getConnection(config.db);
@@ -174,7 +173,6 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
   }
 
   const row = rows[0];
-
   let base64 = '';
   const base64Lob = row[0];
   const formatoArquivo = row[1];
@@ -214,8 +212,19 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
   let nomeModalidade = 'MOD';
   let pastaGed = 'OUTROS';
   let invoice_processo = null;
+  let nomeExportador = '';
+  let numeroInvoice = null;
 
-  // Processo
+  const aplicarSanitizacao = () => {
+    nomeCliente = sanitizarNome(nomeCliente);
+    nomeFornecedor = sanitizarNome(nomeFornecedor);
+    codProcesso = sanitizarNome(codProcesso);
+    nomeModalidade = sanitizarNome(nomeModalidade);
+    nomeExportador = sanitizarNome(nomeExportador);
+    nomeArquivo = sanitizarNome(nomeArquivo);
+  };
+
+  // PROCESSO
   if (idProc) {
     const { rows: procData } = await conn.execute(`
       SELECT DP.ID_INVOICE_PROCESSO, C.NOME_GED, F.NOME_GED, P.COD_PROCESSO, M.NOME, D.NOME_PADRAO_PASTA, D.PASTA_GED
@@ -230,10 +239,11 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
 
     if (procData.length > 0) {
       [invoice_processo, nomeCliente, nomeFornecedor, codProcesso, nomeModalidade, nomeArquivo, pastaGed] = procData[0];
-      console.log('Dados carregados do Processo:', { invoice_processo, nomeCliente, nomeFornecedor, codProcesso, nomeModalidade, nomeArquivo, pastaGed });
+      aplicarSanitizacao();
     }
   }
-  // Cliente
+
+  // CLIENTE
   else if (idCliente) {
     const { rows: cliData } = await conn.execute(`
       SELECT C.NOME_GED, D.NOME_PADRAO_PASTA, D.PASTA_GED
@@ -244,11 +254,12 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
     `, [idCliente]);
 
     if (cliData.length > 0) {
-      [nomeCliente, nomeArquivo] = cliData[0];
-      console.log('Dados carregados do Cliente:', { nomeCliente, nomeArquivo, pastaGed });
+      [nomeCliente, nomeArquivo, pastaGed] = cliData[0];
+      aplicarSanitizacao();
     }
   }
-  // Container
+
+  // CONTAINER
   else if (idContainer) {
     const { rows: contData } = await conn.execute(`
       SELECT C.NOME_GED, F.NOME_GED, P.COD_PROCESSO, M.NOME, D.NOME_PADRAO_PASTA, D.PASTA_GED
@@ -264,10 +275,11 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
 
     if (contData.length > 0) {
       [nomeCliente, nomeFornecedor, codProcesso, nomeModalidade, nomeArquivo, pastaGed] = contData[0];
-      console.log('Dados carregados do Container:', { nomeCliente, nomeFornecedor, codProcesso, nomeModalidade, nomeArquivo });
+      aplicarSanitizacao();
     }
   }
-  // Financeiro
+
+  // FINANCEIRO
   else if (idFinanceiro) {
     const { rows: finData } = await conn.execute(`
       SELECT C.NOME_GED, F.NOME_GED, P.COD_PROCESSO, M.NOME, D.NOME_PADRAO_PASTA, D.PASTA_GED
@@ -282,10 +294,11 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
 
     if (finData.length > 0) {
       [nomeCliente, nomeFornecedor, codProcesso, nomeModalidade, nomeArquivo, pastaGed] = finData[0];
-      console.log('Dados carregados do Financeiro:', { nomeCliente, nomeFornecedor, codProcesso, nomeModalidade, nomeArquivo });
+      aplicarSanitizacao();
     }
   }
-  // Resposta Cotação
+
+  // RESPOSTA COTAÇÃO
   else if (idRespostaCotacao) {
     const { rows: cotData } = await conn.execute(`
       SELECT C.NOME_GED, F.NOME_GED, P.COD_PROCESSO, M.NOME, D.NOME_PADRAO_PASTA, D.PASTA_GED
@@ -301,10 +314,11 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
 
     if (cotData.length > 0) {
       [nomeCliente, nomeFornecedor, codProcesso, nomeModalidade, nomeArquivo, pastaGed] = cotData[0];
-      console.log('Dados carregados da Resposta Cotação:', { nomeCliente, nomeFornecedor, codProcesso, nomeModalidade, nomeArquivo });
+      aplicarSanitizacao();
     }
   }
-  // Solicitação Pagamento
+
+  // SOLICITAÇÃO PAGAMENTO
   else if (idSolicitacaoPagamento) {
     const { rows: spData } = await conn.execute(`
       SELECT D.NOME_PADRAO_PASTA, D.PASTA_GED
@@ -314,12 +328,12 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
     `, [idSolicitacaoPagamento]);
 
     if (spData.length > 0) {
-      nomeArquivo = spData[0][0];
-      pastaGed = spData[0][1];
-      console.log('Dados carregados da Solicitação de Pagamento:', { nomeArquivo });
+      [nomeArquivo, pastaGed] = spData[0];
+      aplicarSanitizacao();
     }
   }
-  // Solicitação Pagamento Título
+
+  // SOLICITAÇÃO PAGAMENTO TÍTULO
   else if (idSolicitacaoPagamentoTitulo) {
     const { rows: sptData } = await conn.execute(`
       SELECT D.NOME_PADRAO_PASTA, D.PASTA_GED
@@ -329,20 +343,15 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
     `, [idSolicitacaoPagamentoTitulo]);
 
     if (sptData.length > 0) {
-      nomeArquivo = sptData[0][0];
-      pastaGed = sptData[0][1];
-      console.log('Dados carregados da Solicitação de Pagamento Título:', { nomeArquivo });
+      [nomeArquivo, pastaGed] = sptData[0];
+      aplicarSanitizacao();
     }
   }
 
-  let nomeExportador = '';
-  let numeroInvoice = null;
-
+  // INVOICE
   if (invoice_processo) {
     const { rows: invoiceData } = await conn.execute(`
-      SELECT 
-        F.NOME_GED AS NOME_EXPORTADOR,
-        I.NUM_INVOICE
+      SELECT F.NOME_GED, I.NUM_INVOICE
       FROM INVOICE_PROCESSO I
       LEFT JOIN FORNECEDOR F ON F.ID_FORNECEDOR = I.ID_EXPORTADOR
       WHERE I.ID_INVOICE_PROCESSO = :id
@@ -350,7 +359,7 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
 
     if (invoiceData.length > 0) {
       [nomeExportador, numeroInvoice] = invoiceData[0];
-      console.log('Dados da Invoice:', { nomeExportador, numeroInvoice });
+      nomeExportador = sanitizarNome(nomeExportador);
     }
   }
 
@@ -412,7 +421,8 @@ export async function buscarDadosParaSalvarArquivo(idDocumentoArquivos) {
         nomeCliente,
         nomeFornecedor,
         codProcesso,
-        abrModalidade: nomeModalidade
+        abrModalidade: nomeModalidade,
+        statusProcesso: statusProc
       });
     }
   }

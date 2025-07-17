@@ -1,5 +1,6 @@
 import { criarPasta } from '../fileManager.js';
 
+
 const statusMap = {
   1: 'PROCESSOS EM ANDAMENTO',
   2: 'PROCESSOS ENCERRADOS',

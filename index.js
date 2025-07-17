@@ -11,7 +11,7 @@ app.get('/', (req, res) => {
   res.send('✅ Servidor de controle de arquivos ativo');
 });
 
-cron.schedule('*/1 * * * *', async () => {
+cron.schedule('*/15 * * * * *', async () => {
   await processarTasks();
 });
 

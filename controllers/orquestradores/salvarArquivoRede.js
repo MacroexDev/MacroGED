@@ -1,9 +1,10 @@
 import { buscarDadosParaSalvarArquivo } from '../../services/processoService.js';
-import { salvarArquivo, criarPasta, atualizarCaminhoRede} from '../fileManager.js';
+import { salvarArquivo, criarPasta, atualizarCaminhoRede } from '../fileManager.js';
 import path from 'path';
 import fs from 'fs';
 import { createHash } from 'crypto';
 import { config } from '../../config.js';
+import { sanitizarNome } from '../../utils/sanitizar.js'; // ✅ Importação da função de sanitização
 
 /**
  * Gera hash SHA-256 do conteúdo base64.
@@ -48,17 +49,17 @@ export async function salvarArquivoRede(idDocumentoArquivos) {
   const pasta = doc.pastaDestino;
   const hash = gerarHashBase64(doc.base64);
 
-  let cod = doc.codProcesso || 'PROC';
+  let cod = sanitizarNome(doc.codProcesso || 'PROC');
   if (doc.numeroInvoice) {
-    cod = doc.numeroInvoice;
+    cod = sanitizarNome(doc.numeroInvoice);
   }
 
-  const nomeOriginal = doc.nomeArquivo || 'arquivo';
+  const nomeOriginal = sanitizarNome(doc.nomeArquivo || 'arquivo');
   const ext = `.${(doc.formatoArquivo || 'pdf').replace('.', '')}`;
 
   const baseName = cod === 'PROC' ? nomeOriginal : `${cod} - ${nomeOriginal}`;
   const pastaCompleta = path.resolve(config.basePath, pasta.replace(/\//g, path.sep));
-  criarPasta(pasta); // Garante que a pasta exista
+  criarPasta(pasta); // A pasta já deve estar montada com nomes sanitizados
 
   const nomeFinal = obterNomeFinal(baseName, ext, pastaCompleta, hash);
 
@@ -67,11 +68,10 @@ export async function salvarArquivoRede(idDocumentoArquivos) {
   if (!nomeFinal) {
     console.warn('⚠️ Arquivo com mesmo conteúdo já existe. Caminho será atualizado.');
   } else {
-    salvarArquivo(pasta, nomeFinal, buffer, idDocumentoArquivos);
+    await salvarArquivo(pasta, nomeFinal, buffer, idDocumentoArquivos);
     console.log(`📄 Arquivo salvo: ${nomeFinal} em ${pasta}`);
   }
 
-  // Atualiza o caminho no banco, mesmo se o arquivo já existia
   await atualizarCaminhoRede(
     { nomeArquivo: nomeOriginal, caminhoAntigo: null, id: idDocumentoArquivos },
     caminhoRelativoFinal
