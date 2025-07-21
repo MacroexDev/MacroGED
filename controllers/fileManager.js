@@ -4,7 +4,7 @@ import oracledb from 'oracledb';
 import { config } from '../config.js';
 import { salvarArquivoRede } from './orquestradores/salvarArquivoRede.js';
 import { buscarCaminhoGedPorDocumento, buscarDadosParaMoverArquivo } from '../services/processoService.js';
-import { sanitizarNome } from '../../utils/sanitizar.js';
+import { sanitizarNome } from '../utils/sanitizar.js';
 
 
 function gerarCaminho(relPath) {
