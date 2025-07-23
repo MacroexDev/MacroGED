@@ -13,7 +13,7 @@ export async function buscarDadosDoCliente(idCliente) {
   const conn = await oracledb.getConnection(config.db);
 
   const clienteResult = await conn.execute(
-    `SELECT APELIDO FROM CLIENTE WHERE ID_CLIENTE = :id`,
+    `SELECT NOME_GED FROM CLIENTE WHERE ID_CLIENTE = :id`,
     [idCliente]
   );
 
@@ -37,7 +37,7 @@ export async function buscarDadosDoCliente(idCliente) {
     const [idProc, codProcesso, idModalidade, idFornecedor, status] = row;
 
     const fornecedorResult = await conn.execute(
-      `SELECT APELIDO FROM FORNECEDOR WHERE ID_FORNECEDOR = :id`,
+      `SELECT NOME_GED FROM FORNECEDOR WHERE ID_FORNECEDOR = :id`,
       [idFornecedor]
     );
     const nomeFornecedor = fornecedorResult.rows.length > 0
@@ -72,7 +72,7 @@ export async function buscarDadosDoFornecedor(idFornecedor) {
   const conn = await oracledb.getConnection(config.db);
 
   const result = await conn.execute(
-    `SELECT APELIDO FROM FORNECEDOR WHERE ID_FORNECEDOR = :id`,
+    `SELECT NOME_GED FROM FORNECEDOR WHERE ID_FORNECEDOR = :id`,
     [idFornecedor]
   );
 

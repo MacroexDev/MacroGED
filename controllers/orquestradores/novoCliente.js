@@ -12,15 +12,15 @@ export async function novoCliente(idCliente) {
 
   criarEstruturaCliente(nomeClienteLimpo);
 
-  for (const processo of processosRelacionados) {
-    criarEstruturaPadraoProcesso({
-      nomeCliente: nomeClienteLimpo,
-      nomeFornecedor: sanitizarNome(processo.nomeFornecedor),
-      codProcesso: processo.codProcesso,
-      abrModalidade: sanitizarNome(processo.abrModalidade),
-      statusProcesso: processo.status
-    });
-  }
+  // for (const processo of processosRelacionados) {
+  //   criarEstruturaPadraoProcesso({
+  //     nomeCliente: nomeClienteLimpo,
+  //     nomeFornecedor: sanitizarNome(processo.nomeFornecedor),
+  //     codProcesso: processo.codProcesso,
+  //     abrModalidade: sanitizarNome(processo.abrModalidade),
+  //     statusProcesso: processo.status
+  //   });
+  // }
 
   return `Cliente ${nomeClienteLimpo} estruturado com ${processosRelacionados.length} processo(s).`;
 }
